@@ -17,13 +17,7 @@ MissionManager::MissionManager(ros::NodeHandle& n)
     m_launchMissionServer = n.advertiseService("/mission/launch_mission", &MissionManager::launchMissionService, this);
     m_abortMissionServer = n.advertiseService("/mission/abort_mission", &MissionManager::abortMissionService, this);
 
-    // Parameters
-    n.param<float>("lat_ref", m_lat_ref, 48.711254);
-    n.param<float>("lon_ref", m_lon_ref, 2.217765);
-    n.param<std::string>("frame_id", m_frame_id, "odom");
-
     // Variables
-    m_local.Reset(m_lat_ref, m_lon_ref, 0.0);
     m_sequence = 0;
 };
 
@@ -69,13 +63,6 @@ void MissionManager::moveBaseResultCallback(const move_base_msgs::MoveBaseAction
     }
 }
 
-void MissionManager::latLonRefCallback(const sensor_msgs::NavSatFix& _lat_lon_ref)
-{
-    m_lat_ref = _lat_lon_ref.latitude;
-    m_lon_ref = _lat_lon_ref.longitude;
-    m_local.Reset(_lat_lon_ref.latitude, _lat_lon_ref.longitude, 0.0);
-}
-
 // -------------------- Service servers --------------------
 
 bool MissionManager::pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Request& res)
@@ -116,31 +103,44 @@ void MissionManager::setNextGoal()
 
 geometry_msgs::PoseStamped MissionManager::getTargetPose(geographic_msgs::GeoPoint& _geo_point)
 {
-    geometry_msgs::PoseStamped target_pose;
-    ros::Time cur_time = ros::Time::now();
+    geometry_msgs::PoseStamped target_pose_stamped_utm;
+    geometry_msgs::PoseStamped target_pose_stamped_odom;
 
-    target_pose.header.frame_id = "m_frame_id";
-    m_sequence ++;
-    target_pose.header.seq = m_sequence;
-    target_pose.header.stamp = cur_time;
+    int zone;
+    bool northp;
+    GeographicLib::UTMUPS::Forward(_geo_point.latitude, _geo_point.longitude, zone, northp, target_pose_stamped_utm.pose.position.x, target_pose_stamped_utm.pose.position.y);
+    target_pose_stamped_utm.pose.orientation.w = 1.0;
+    
+    ros::Time time_now = ros::Time::now();
+    target_pose_stamped_utm.header.stamp = time_now;
+    target_pose_stamped_utm.header.frame_id = "utm";
+    bool notDone = true;
+    tf::TransformListener listener;
+    while(notDone)
+    {
+        try
+        {
+            target_pose_stamped_utm.header.stamp = ros::Time::now();
+            listener.waitForTransform("odom", "utm", time_now, ros::Duration(3.0));
+            listener.transformPose("odom", target_pose_stamped_utm, target_pose_stamped_odom);
+            notDone = false;
+        }
+        catch (tf::TransformException& ex)
+        {
+            ROS_WARN("%s", ex.what());
+            ros::Duration(0.01).sleep();
+        }
+    }
+    target_pose_stamped_odom.header.stamp = time_now;
+    target_pose_stamped_odom.header.frame_id = "odom";
+    m_sequence++;
+    target_pose_stamped_odom.header.seq = m_sequence;
 
-    geometry_msgs::Point point;
-    m_local.Forward(_geo_point.latitude, _geo_point.longitude, _geo_point.altitude, point.x, point.y, point.z);
-    target_pose.pose.position.x = point.y;
-    target_pose.pose.position.y = -point.x;
-    target_pose.pose.position.z = point.z;
-    target_pose.pose.orientation.w = 1.0;
-
-    ROS_INFO("Goal setted to : ");
-    ROS_INFO(" latitude: %f", _geo_point.latitude);
-    ROS_INFO("longitude: %f", _geo_point.longitude);
-    ROS_INFO("        x: %f", target_pose.pose.position.x);
-    ROS_INFO("        y: %f", target_pose.pose.position.y);
-
-    return target_pose;
+    ROS_INFO_STREAM("Goal setted to :"<<"\n"<<"    latitude: "<<_geo_point.latitude<<"\n"<<"   longitude: "<<_geo_point.longitude <<"\n"<<"           x: "<<target_pose_stamped_odom.pose.position.x <<"\n"<< "           y: "<<target_pose_stamped_odom.pose.position.y);
+    ROS_INFO_STREAM("Goal setted to :"<<"\n"<<"       utm_x: "<<target_pose_stamped_utm.pose.position.x <<"\n"<< "       utm_y: "<<target_pose_stamped_utm.pose.position.y);
+    
+    return target_pose_stamped_odom;
 }
-
-
 
 void MissionManager::setMoveBaseGoal(const geometry_msgs::PoseStamped& _target_pose, actionlib_msgs::GoalID& _goal_id)
 {
@@ -154,11 +154,11 @@ void MissionManager::setMoveBaseGoal(const geometry_msgs::PoseStamped& _target_p
 actionlib_msgs::GoalID MissionManager::generateID()
 {
     actionlib_msgs::GoalID goal_id;
-    ros::Time cur_time = ros::Time::now();
+    ros::Time time_now = ros::Time::now();
     std::stringstream ss;
     ss << "mission_manager-";
-    ss << cur_time.sec << "." << cur_time.nsec;
+    ss << time_now.sec << "." << time_now.nsec;
     goal_id.id = ss.str();
-    goal_id.stamp = cur_time;
+    goal_id.stamp = time_now;
     return goal_id;
 }

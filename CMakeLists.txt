@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   cohoma_msgs
   actionlib_msgs
   sensor_msgs
+  tf
 )
 
 ## Find GeographicLib
@@ -116,7 +117,7 @@ find_package(GeographicLib REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES cohoma_mission_manager
-  CATKIN_DEPENDS geographic_msgs geometry_msgs move_base_msgs roscpp std_msgs std_srvs cohoma_msgs actionlib_msgs sensor_msgs
+  CATKIN_DEPENDS geographic_msgs geometry_msgs move_base_msgs roscpp std_msgs std_srvs cohoma_msgs actionlib_msgs sensor_msgs tf
   DEPENDS GeographicLib
 )
 

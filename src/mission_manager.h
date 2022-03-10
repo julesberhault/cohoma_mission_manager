@@ -10,9 +10,9 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "geographic_msgs/GeoPoint.h"
 #include "geometry_msgs/Point.h"
+#include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/Quaternion.h"
 #include "geometry_msgs/QuaternionStamped.h"
-#include "geometry_msgs/TwistStamped.h"
 #include "sensor_msgs/NavSatFix.h"
 #include "nav_msgs/GetPlan.h"
 #include "actionlib_msgs/GoalStatusArray.h"
@@ -26,14 +26,15 @@
 #include "cohoma_msgs/StrategicPoint.h"
 #include "cohoma_msgs/PushMission.h"
 #include "std_srvs/Empty.h"
-#include "tf2/LinearMath/Quaternion.h"
+#include "tf/transform_listener.h"
+
 
 // Geographic Lib
 #include <GeographicLib/LocalCartesian.hpp>
+#include <GeographicLib/UTMUPS.hpp>
 
 class MissionManager
 {
-    
     public:
         MissionManager(ros::NodeHandle& n);
 
@@ -47,8 +48,6 @@ class MissionManager
         void moveBaseStatusCallback(const actionlib_msgs::GoalStatusArray& goal_status_array);
         // Message containing move base goal results
         void moveBaseResultCallback(const move_base_msgs::MoveBaseActionResult& move_base_action_result);
-
-        void latLonRefCallback(const sensor_msgs::NavSatFix& lat_lon_ref);
 
         // -------------------- Service servers --------------------
 
@@ -83,16 +82,13 @@ class MissionManager
         ros::ServiceServer m_abortMissionServer;
         ros::ServiceServer m_launchMissionServer;
 
+        // tf Listener
+        tf2_ros::Buffer m_tf_buffer;
+
         // Mission data
         std::vector<cohoma_msgs::WayPoint> m_waypoints;
         std::vector<cohoma_msgs::StrategicPoint> m_strategic_points;
         int m_cur_waypoint_seq;
         actionlib_msgs::GoalID m_cur_goal_id;
-        std::string m_frame_id;
         int m_sequence;
-
-        // Projection
-        float m_lat_ref;
-        float m_lon_ref;
-        GeographicLib::LocalCartesian m_local;
 };
