@@ -50,19 +50,27 @@ class MissionManager
         void moveBaseResultCallback(const move_base_msgs::MoveBaseActionResult& move_base_action_result);
 
         // -------------------- Service servers --------------------
-
+        // Set mission
         bool pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Request& res);
+        // Build next goal and init waypoint following
         bool launchMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res);
+        // Stop mission and reset parameters
         bool abortMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res);
 
         // -------------------- Functions --------------------
 
-        
+        // Publish and build next goal on the list (in this order)
         void setNextGoal();
-
+        // Build next goal
+        void buildNextGoal();
+        // Publish next goal
         void setMoveBaseGoal(const geometry_msgs::PoseStamped& target_pose, actionlib_msgs::GoalID& _goal_id);
 
         geometry_msgs::PoseStamped getTargetPose(geographic_msgs::GeoPoint& geo_point);
+
+        geometry_msgs::PointStamped latLongToUtm(geographic_msgs::GeoPoint& _geo_point);
+
+        geometry_msgs::PointStamped utmToOdom(geometry_msgs::PointStamped& _utm_point);
 
         actionlib_msgs::GoalID generateID();
 
@@ -91,4 +99,5 @@ class MissionManager
         int m_cur_waypoint_seq;
         actionlib_msgs::GoalID m_cur_goal_id;
         int m_sequence;
+        geometry_msgs::PoseStamped m_next_goal;
 };

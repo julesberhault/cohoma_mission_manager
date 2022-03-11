@@ -69,6 +69,7 @@ bool MissionManager::pushMissionService(cohoma_msgs::PushMission::Request& req, 
 {
     m_waypoints = req.waypoints;
     m_cur_waypoint_seq = req.current_seq;
+    ROS_INFO("Mission received");
     return true;
 }
 
@@ -77,6 +78,7 @@ bool MissionManager::launchMissionService(std_srvs::Empty::Request& req, std_srv
     if (m_waypoints.size())
     {
         ROS_INFO("Launch mission");
+        buildNextGoal();
         setNextGoal();
         return true;
     }
@@ -86,6 +88,8 @@ bool MissionManager::launchMissionService(std_srvs::Empty::Request& req, std_srv
 bool MissionManager::abortMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res)
 {
     m_moveBaseCancelPublisher.publish(m_cur_goal_id);
+    m_waypoints.erase(m_waypoints.begin()+m_cur_waypoint_seq-1);
+    int m_cur_waypoint_seq = 0;
     return true;
 }
 
@@ -95,34 +99,47 @@ void MissionManager::setNextGoal()
 {
     if (m_cur_waypoint_seq < m_waypoints.size())
     {
-        geographic_msgs::GeoPoint cur_geo_point = m_waypoints.at(m_cur_waypoint_seq).position;
-        m_cur_goal_id = generateID();
-        setMoveBaseGoal(getTargetPose(cur_geo_point), m_cur_goal_id);
+        setMoveBaseGoal(m_next_goal, m_cur_goal_id);
+        buildNextGoal(); // Building next goal now to be quicker next time
+    }
+    else if (m_cur_waypoint_seq == m_waypoints.size())
+    {
+        setMoveBaseGoal(m_next_goal, m_cur_goal_id);
     }
 }
 
-geometry_msgs::PoseStamped MissionManager::getTargetPose(geographic_msgs::GeoPoint& _geo_point)
+void MissionManager::buildNextGoal()
 {
-    geometry_msgs::PoseStamped target_pose_stamped_utm;
-    geometry_msgs::PoseStamped target_pose_stamped_odom;
+    geographic_msgs::GeoPoint cur_geo_point = m_waypoints.at(m_cur_waypoint_seq).position;
+    m_cur_goal_id = generateID();
+    m_next_goal = getTargetPose(cur_geo_point);
+}
 
-    int zone;
+geometry_msgs::PointStamped MissionManager::latLongToUtm(geographic_msgs::GeoPoint& _geo_point)
+{
+    geometry_msgs::PointStamped utm_point;
+    int utm_zone;
     bool northp;
-    GeographicLib::UTMUPS::Forward(_geo_point.latitude, _geo_point.longitude, zone, northp, target_pose_stamped_utm.pose.position.x, target_pose_stamped_utm.pose.position.y);
-    target_pose_stamped_utm.pose.orientation.w = 1.0;
-    
-    ros::Time time_now = ros::Time::now();
-    target_pose_stamped_utm.header.stamp = time_now;
-    target_pose_stamped_utm.header.frame_id = "utm";
+    utm_point.header.frame_id = "utm";
+    utm_point.header.stamp = ros::Time::now();
+    GeographicLib::UTMUPS::Forward(_geo_point.latitude, _geo_point.longitude, utm_zone, northp, utm_point.point.x, utm_point.point.y);
+    utm_point.point.z = 0;
+
+    return utm_point;
+}
+
+geometry_msgs::PointStamped MissionManager::utmToOdom(geometry_msgs::PointStamped& _utm_point)
+{
+    geometry_msgs::PointStamped odom_point;
     bool notDone = true;
     tf::TransformListener listener;
+    ros::Time time_now = ros::Time::now();
     while(notDone)
     {
         try
         {
-            target_pose_stamped_utm.header.stamp = ros::Time::now();
             listener.waitForTransform("odom", "utm", time_now, ros::Duration(3.0));
-            listener.transformPose("odom", target_pose_stamped_utm, target_pose_stamped_odom);
+            listener.transformPoint("odom", _utm_point, odom_point);
             notDone = false;
         }
         catch (tf::TransformException& ex)
@@ -131,15 +148,22 @@ geometry_msgs::PoseStamped MissionManager::getTargetPose(geographic_msgs::GeoPoi
             ros::Duration(0.01).sleep();
         }
     }
-    target_pose_stamped_odom.header.stamp = time_now;
-    target_pose_stamped_odom.header.frame_id = "odom";
-    m_sequence++;
-    target_pose_stamped_odom.header.seq = m_sequence;
+    return odom_point;
+}
 
-    ROS_INFO_STREAM("Goal setted to :"<<"\n"<<"    latitude: "<<_geo_point.latitude<<"\n"<<"   longitude: "<<_geo_point.longitude <<"\n"<<"           x: "<<target_pose_stamped_odom.pose.position.x <<"\n"<< "           y: "<<target_pose_stamped_odom.pose.position.y);
-    ROS_INFO_STREAM("Goal setted to :"<<"\n"<<"       utm_x: "<<target_pose_stamped_utm.pose.position.x <<"\n"<< "       utm_y: "<<target_pose_stamped_utm.pose.position.y);
-    
-    return target_pose_stamped_odom;
+geometry_msgs::PoseStamped MissionManager::getTargetPose(geographic_msgs::GeoPoint& _geo_point)
+{
+    geometry_msgs::PoseStamped target_pose;
+    target_pose.header.frame_id = "odom";
+    target_pose.header.stamp = ros::Time::now();
+    geometry_msgs::PointStamped utm_point = latLongToUtm(_geo_point);
+    geometry_msgs::PointStamped target_point = utmToOdom(utm_point);
+    target_pose.pose.position.x = target_point.point.x;
+    target_pose.pose.position.y = target_point.point.y;
+    m_sequence++;
+    target_pose.header.seq = m_sequence;
+    ROS_INFO_STREAM("Goal setted to :"<<"\n"<<"    latitude: "<<_geo_point.latitude<<"\n"<<"   longitude: "<<_geo_point.longitude <<"\n"<<"           x: "<<target_pose.pose.position.x <<"\n"<< "           y: "<<target_pose.pose.position.y);
+    return target_pose;
 }
 
 void MissionManager::setMoveBaseGoal(const geometry_msgs::PoseStamped& _target_pose, actionlib_msgs::GoalID& _goal_id)
