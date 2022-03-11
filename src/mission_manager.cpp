@@ -65,31 +65,40 @@ void MissionManager::moveBaseResultCallback(const move_base_msgs::MoveBaseAction
 
 // -------------------- Service servers --------------------
 
-bool MissionManager::pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Request& res)
+bool MissionManager::pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Response& res)
 {
     m_waypoints = req.waypoints;
     m_cur_waypoint_seq = req.current_seq;
     ROS_INFO("Mission received");
+    res.success = true;
     return true;
 }
 
-bool MissionManager::launchMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res)
+bool MissionManager::launchMissionService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
 {
     if (m_waypoints.size())
     {
-        ROS_INFO("Launch mission");
-        buildNextGoal();
+        ROS_INFO("Mission launched");
         setNextGoal();
+        res.success = true;
+        res.message = "Mission launched with success";
         return true;
     }
+    res.success = false;
+    res.message = "No waypoint received. Unable to launch mission";
     return false;
 }
 
-bool MissionManager::abortMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res)
+bool MissionManager::abortMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res)
 {
     m_moveBaseCancelPublisher.publish(m_cur_goal_id);
-    m_waypoints.erase(m_waypoints.begin()+m_cur_waypoint_seq-1);
-    int m_cur_waypoint_seq = 0;
+    if (m_cur_waypoint_seq)
+    {
+        m_waypoints.erase(m_waypoints.begin()+m_cur_waypoint_seq-1);
+    }
+    m_cur_waypoint_seq = 0;
+    ROS_INFO_STREAM(m_waypoints.size());
+    ROS_INFO("Mission aborted");
     return true;
 }
 
@@ -99,11 +108,7 @@ void MissionManager::setNextGoal()
 {
     if (m_cur_waypoint_seq < m_waypoints.size())
     {
-        setMoveBaseGoal(m_next_goal, m_cur_goal_id);
-        buildNextGoal(); // Building next goal now to be quicker next time
-    }
-    else if (m_cur_waypoint_seq == m_waypoints.size())
-    {
+        buildNextGoal();
         setMoveBaseGoal(m_next_goal, m_cur_goal_id);
     }
 }
@@ -138,14 +143,15 @@ geometry_msgs::PointStamped MissionManager::utmToOdom(geometry_msgs::PointStampe
     {
         try
         {
-            listener.waitForTransform("odom", "utm", time_now, ros::Duration(3.0));
+            _utm_point.header.stamp = ros::Time::now();
+            listener.waitForTransform("odom", "utm", time_now, ros::Duration(0.5));
             listener.transformPoint("odom", _utm_point, odom_point);
             notDone = false;
         }
         catch (tf::TransformException& ex)
         {
             ROS_WARN("%s", ex.what());
-            ros::Duration(0.01).sleep();
+            ros::Duration(0.1).sleep();
         }
     }
     return odom_point;
@@ -160,6 +166,7 @@ geometry_msgs::PoseStamped MissionManager::getTargetPose(geographic_msgs::GeoPoi
     geometry_msgs::PointStamped target_point = utmToOdom(utm_point);
     target_pose.pose.position.x = target_point.point.x;
     target_pose.pose.position.y = target_point.point.y;
+    target_pose.pose.orientation.w = 1.0;
     m_sequence++;
     target_pose.header.seq = m_sequence;
     ROS_INFO_STREAM("Goal setted to :"<<"\n"<<"    latitude: "<<_geo_point.latitude<<"\n"<<"   longitude: "<<_geo_point.longitude <<"\n"<<"           x: "<<target_pose.pose.position.x <<"\n"<< "           y: "<<target_pose.pose.position.y);

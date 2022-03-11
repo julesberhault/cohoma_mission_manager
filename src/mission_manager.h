@@ -25,6 +25,7 @@
 #include "cohoma_msgs/MissionContext.h"
 #include "cohoma_msgs/StrategicPoint.h"
 #include "cohoma_msgs/PushMission.h"
+#include "std_srvs/Trigger.h"
 #include "std_srvs/Empty.h"
 #include "tf/transform_listener.h"
 
@@ -51,15 +52,15 @@ class MissionManager
 
         // -------------------- Service servers --------------------
         // Set mission
-        bool pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Request& res);
+        bool pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Response& res);
         // Build next goal and init waypoint following
-        bool launchMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res);
+        bool launchMissionService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
         // Stop mission and reset parameters
-        bool abortMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Request& res);
+        bool abortMissionService(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
 
         // -------------------- Functions --------------------
 
-        // Publish and build next goal on the list (in this order)
+        // Build next goal on the list and set it
         void setNextGoal();
         // Build next goal
         void buildNextGoal();
