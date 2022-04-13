@@ -70,8 +70,12 @@ class MissionManager
         geometry_msgs::PoseStamped getTargetPose(geographic_msgs::GeoPoint& geo_point);
 
         geometry_msgs::PointStamped latLongToUtm(geographic_msgs::GeoPoint& _geo_point);
+        
+        geographic_msgs::GeoPoint utmToLatLong(geometry_msgs::PointStamped& _utm_point);
 
         geometry_msgs::PointStamped utmToOdom(geometry_msgs::PointStamped& _utm_point);
+
+        geometry_msgs::PointStamped odomToUtm(geometry_msgs::PointStamped& _odom_point);
 
         actionlib_msgs::GoalID generateID();
 
@@ -95,6 +99,8 @@ class MissionManager
         tf2_ros::Buffer m_tf_buffer;
 
         // Mission data
+        int m_utm_zone;
+        bool m_northp;
         std::vector<cohoma_msgs::WayPoint> m_waypoints;
         std::vector<cohoma_msgs::StrategicPoint> m_strategic_points;
         int m_cur_waypoint_seq;

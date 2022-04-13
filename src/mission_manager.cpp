@@ -17,6 +17,11 @@ MissionManager::MissionManager(ros::NodeHandle& n)
     m_launchMissionServer = n.advertiseService("/mission/launch_mission", &MissionManager::launchMissionService, this);
     m_abortMissionServer = n.advertiseService("/mission/abort_mission", &MissionManager::abortMissionService, this);
 
+    // Parameters
+    std::string utm_grid_zone;
+    n.param<std::string>("utm_zone", utm_grid_zone, "31n");
+    GeographicLib::UTMUPS::DecodeZone(utm_grid_zone, m_utm_zone, m_northp);
+
     // Variables
     m_sequence = 0;
 };
@@ -123,14 +128,21 @@ void MissionManager::buildNextGoal()
 geometry_msgs::PointStamped MissionManager::latLongToUtm(geographic_msgs::GeoPoint& _geo_point)
 {
     geometry_msgs::PointStamped utm_point;
-    int utm_zone;
-    bool northp;
     utm_point.header.frame_id = "utm";
     utm_point.header.stamp = ros::Time::now();
-    GeographicLib::UTMUPS::Forward(_geo_point.latitude, _geo_point.longitude, utm_zone, northp, utm_point.point.x, utm_point.point.y);
+    GeographicLib::UTMUPS::Forward(_geo_point.latitude, _geo_point.longitude, m_utm_zone, m_northp, utm_point.point.x, utm_point.point.y);
     utm_point.point.z = 0;
 
     return utm_point;
+}
+
+geographic_msgs::GeoPoint MissionManager::utmToLatLong(geometry_msgs::PointStamped& _utm_point)
+{
+    geographic_msgs::GeoPoint geo_point;
+    GeographicLib::UTMUPS::Reverse(m_utm_zone, m_northp, _utm_point.point.x, _utm_point.point.y, geo_point.latitude, geo_point.longitude);
+    geo_point.altitude = 0;
+
+    return geo_point;
 }
 
 geometry_msgs::PointStamped MissionManager::utmToOdom(geometry_msgs::PointStamped& _utm_point)
@@ -155,6 +167,30 @@ geometry_msgs::PointStamped MissionManager::utmToOdom(geometry_msgs::PointStampe
         }
     }
     return odom_point;
+}
+
+geometry_msgs::PointStamped MissionManager::odomToUtm(geometry_msgs::PointStamped& _odom_point)
+{
+    geometry_msgs::PointStamped utm_point;
+    bool notDone = true;
+    tf::TransformListener listener;
+    ros::Time time_now = ros::Time::now();
+    while(notDone)
+    {
+        try
+        {
+            _odom_point.header.stamp = ros::Time::now();
+            listener.waitForTransform("utm", "odom", time_now, ros::Duration(0.5));
+            listener.transformPoint("utm", _odom_point, utm_point);
+            notDone = false;
+        }
+        catch (tf::TransformException& ex)
+        {
+            ROS_WARN("%s", ex.what());
+            ros::Duration(0.1).sleep();
+        }
+    }
+    return utm_point;
 }
 
 geometry_msgs::PoseStamped MissionManager::getTargetPose(geographic_msgs::GeoPoint& _geo_point)
