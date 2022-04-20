@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(cohoma_mission_manager)
+project(mission_manager)
 set(CMAKE_CXX_STANDARD 14)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   std_srvs
-  cohoma_msgs
+  navigation_msgs
   actionlib_msgs
   sensor_msgs
   tf
@@ -116,8 +116,8 @@ find_package(GeographicLib REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES cohoma_mission_manager
-  CATKIN_DEPENDS geographic_msgs geometry_msgs move_base_msgs roscpp std_msgs std_srvs cohoma_msgs actionlib_msgs sensor_msgs tf
+#  LIBRARIES mission_manager
+  CATKIN_DEPENDS geographic_msgs geometry_msgs move_base_msgs roscpp std_msgs std_srvs navigation_msgs actionlib_msgs sensor_msgs tf
   DEPENDS GeographicLib
 )
 
@@ -135,7 +135,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/cohoma_mission_manager.cpp
+#   src/${PROJECT_NAME}/mission_manager.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -146,8 +146,8 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-file(GLOB COHOMA_MISSION_MANAGER_SOURCES src/*)
-add_executable(${PROJECT_NAME}_node ${COHOMA_MISSION_MANAGER_SOURCES})
+file(GLOB MISSION_MANAGER_SOURCES src/*)
+add_executable(${PROJECT_NAME}_node ${MISSION_MANAGER_SOURCES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -212,7 +212,7 @@ target_link_libraries(${PROJECT_NAME}_node
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_cohoma_mission_manager.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_mission_manager.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

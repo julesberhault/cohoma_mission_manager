@@ -20,11 +20,11 @@
 #include "move_base_msgs/MoveBaseActionResult.h"
 #include "move_base_msgs/MoveBaseActionGoal.h"
 #include "move_base_msgs/MoveBaseGoal.h"
-#include "cohoma_msgs/MissionPlan.h"
-#include "cohoma_msgs/WayPoint.h"
-#include "cohoma_msgs/MissionContext.h"
-#include "cohoma_msgs/StrategicPoint.h"
-#include "cohoma_msgs/PushMission.h"
+#include "navigation_msgs/MissionPlan.h"
+#include "navigation_msgs/WayPoint.h"
+#include "navigation_msgs/MissionContext.h"
+#include "navigation_msgs/StrategicPoint.h"
+#include "navigation_msgs/PushMission.h"
 #include "std_srvs/Trigger.h"
 #include "std_srvs/Empty.h"
 #include "tf/transform_listener.h"
@@ -42,9 +42,9 @@ class MissionManager
         // -------------------- Callbacks --------------------
 
         // Message containing mission plan sent from CoHoMa HMI
-        void missionPlanCallback(const cohoma_msgs::MissionPlan& mission_plan);
+        void missionPlanCallback(const navigation_msgs::MissionPlan& mission_plan);
         // Message containing mission context sent from anyone
-        void missionContextCallback(const cohoma_msgs::MissionContext& mission_context);
+        void missionContextCallback(const navigation_msgs::MissionContext& mission_context);
         // Message containing move base goal status
         void moveBaseStatusCallback(const actionlib_msgs::GoalStatusArray& goal_status_array);
         // Message containing move base goal results
@@ -52,7 +52,7 @@ class MissionManager
 
         // -------------------- Service servers --------------------
         // Set mission
-        bool pushMissionService(cohoma_msgs::PushMission::Request& req, cohoma_msgs::PushMission::Response& res);
+        bool pushMissionService(navigation_msgs::PushMission::Request& req, navigation_msgs::PushMission::Response& res);
         // Build next goal and init waypoint following
         bool launchMissionService(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
         // Stop mission and reset parameters
@@ -101,8 +101,13 @@ class MissionManager
         // Mission data
         int m_utm_zone;
         bool m_northp;
-        std::vector<cohoma_msgs::WayPoint> m_waypoints;
-        std::vector<cohoma_msgs::StrategicPoint> m_strategic_points;
+        bool m_orientation_ned;
+        bool m_zero_altitude;
+        std::string m_utm_frame_id;
+        std::string m_odom_frame_id;
+        std::string m_base_link_frame_id;
+        std::vector<navigation_msgs::WayPoint> m_waypoints;
+        std::vector<navigation_msgs::StrategicPoint> m_strategic_points;
         int m_cur_waypoint_seq;
         actionlib_msgs::GoalID m_cur_goal_id;
         int m_sequence;
